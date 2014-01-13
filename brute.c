@@ -45,6 +45,9 @@ char* user;
 char* password_file;
 char* success_pass;
 struct sockaddr_in sockaddr_;
+int words = 0;
+int wordcount = 0;
+
 
 int proccess_args(int argc, char* argv[]);
 int verify_values();
@@ -160,17 +163,21 @@ int load_list() {
 		strcpy(curr->pstr, pstr); // Copy string pstr into curr->pstr
 		curr->next = malloc(sizeof(struct password));
 		curr = curr->next; // Change variable to next password
+		words++;
 	}
 	fclose(fh);
+	printf("%s[+]Found %d words.%s\n",GRN,words,NRM);
 	printf("%s[+]Word list loaded.%s\n", GRN, NRM);
 	return 0;
 }
 int login() {
+	int timeremaining = delay * words;
 	sockaddr_.sin_family = AF_INET; // Sets to the AF layer of the OSI model to Internet protocol V4
 	sockaddr_.sin_port = htons(port);
 	struct password* curr = root;
 	for (;;) // infinite for loop
 			{
+		wordcount++;
 		printf("%s[+]Attempting to connect...%s\n", GRN, NRM);
 		int sockfd = 0;
 		char recvbuf[1024]; // Max receive string 1024 bytes
@@ -221,6 +228,8 @@ int login() {
 			printf("%s\n", recvbuf);
 			if (recvbuf[0] == '5' && recvbuf[1] == '3' && recvbuf[2] == '0') {
 				printf("%s[+]===Auth Failure===[+]%s\n", RED, NRM);
+				printf("%s[+]Password #%d out of %d%s\n",GRN,wordcount,words,NRM);
+				printf("%s[+]Seconds remaining: %d%s\n",YEL,timeremaining,NRM);
 				printf("%s[+]Trying next password...%s\n", GRN, NRM);
 			} else if (recvbuf[0] == '2' && recvbuf[1] == '3'
 					&& recvbuf[2] == '0') {
@@ -230,7 +239,6 @@ int login() {
 			}
 			ioctl(sockfd, FIONREAD, &remaining);
 		}
-
 		close(sockfd);
 		curr = curr->next;
 		sleep(delay); // Delay the users set time. - Just noticed it is in seconds not Mil haha
