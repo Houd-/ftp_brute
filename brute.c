@@ -53,7 +53,7 @@ int proccess_args(int argc, char* argv[]);
 int verify_values();
 int load_list();
 int login();
-int sreadl(int sockfd, void* buf);
+size_t sreadl(int sockfd, void* buf);
 
 struct password {
 	char pstr[40];
@@ -84,6 +84,9 @@ int main(int argc, char* argv[]) {
 	return 1;
 }
 
+/*
+ * Processes command line arguments
+ */
 int proccess_args(int argc, char* argv[]) {
 	if (argc < 11) {
 		return -1;
@@ -109,7 +112,10 @@ int proccess_args(int argc, char* argv[]) {
 	return 0;
 }
 
-int verify_values() { //
+/*
+ * Verify's the values passed by the command line
+ */
+int verify_values() {
 	if (port == 0) {
 		printf("%sThere was no port defined... using port 21.%s\n", YEL, NRM);
 		port = 21;
@@ -139,6 +145,9 @@ int verify_values() { //
 	return 0;
 }
 
+/*
+ * Loads the password list
+ */
 int load_list() {
 	FILE* fh = fopen(password_file, "r");
 
@@ -170,6 +179,10 @@ int load_list() {
 	printf("%s[+]Word list loaded.%s\n", GRN, NRM);
 	return 0;
 }
+
+/*
+ * Preforms a login attempts on the FTP server until success or all passwords are tried.
+ */
 int login() {
 	int timeremaining = delay * words;
 	sockaddr_.sin_family = AF_INET; // Sets to the AF layer of the OSI model to Internet protocol V4
@@ -241,14 +254,23 @@ int login() {
 		}
 		close(sockfd);
 		curr = curr->next;
-		sleep(delay); // Delay the users set time. - Just noticed it is in seconds not Mil haha
+		if(curr->next == NULL)
+		{
+			fprintf(stderr, "%s[+]Saturated the password list, Brute forcing failed.%s", RED, NRM);
+			return -1;
+		}
+		sleep(delay); // Delay the users set time.
 	}
 	doublebreak: printf("%s[+]Username: %s%s\n", GRN, user, NRM);
 	printf("%s[+]Successful pass: %s%s\n", GRN, success_pass, NRM);
 	printf("%s[+]Brute force done.%s\n", GRN, NRM);
 	return 0;
 }
-int sreadl(int sockfd, void* buf) {
+
+/*
+ * Read's a single line from a socket fd.
+ */
+size_t sreadl(int sockfd, void* buf) {
 	char* line = buf;
 	size_t index = 0;
 	char c;
@@ -264,6 +286,7 @@ int sreadl(int sockfd, void* buf) {
 		*line++ = c;
 		index++;
 	}
-	*line++ = '\0';
-	return 0;
+	*line++ = '\0'; // Should the size index include the null byte?
+	index++; // Let's do that
+	return index;
 }
