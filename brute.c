@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <strings.h>
+#include <errno.h>
 
 #define NRM  "\x1B[0m"
 #define RED  "\x1B[31m"
@@ -200,8 +201,7 @@ int login() {
 					NRM);
 			return -1;
 		}
-		if (connect(sockfd, (struct sockaddr *) &sockaddr_, sizeof(sockaddr_))
-				< 0) {
+		if (connect(sockfd, (struct sockaddr *) &sockaddr_, sizeof(sockaddr_))< 0) {
 			fprintf(stderr,
 					"%s[+]Could not connect to host, Please check the address or if your delay is too low your IP could be blocked.%s\n",
 					RED, NRM);
@@ -211,7 +211,8 @@ int login() {
 		int remaining = -1;
 		while (remaining != 0) {
 			bzero(recvbuf, sizeof(recvbuf));
-			sreadl(sockfd, &recvbuf);
+			if(sreadl(sockfd, &recvbuf) == -1)
+				return -1;
 			printf("%s\n", recvbuf);
 			ioctl(sockfd, FIONREAD, &remaining);
 		}
@@ -237,7 +238,8 @@ int login() {
 		remaining = -1;
 		while (remaining != 0) {
 			bzero(recvbuf, sizeof(recvbuf));
-			sreadl(sockfd, &recvbuf);
+			if(sreadl(sockfd, &recvbuf) == -1)
+				return -1;
 			printf("%s\n", recvbuf);
 			if (recvbuf[0] == '5' && recvbuf[1] == '3' && recvbuf[2] == '0') {
 				printf("%s[+]===Auth Failure===[+]%s\n", RED, NRM);
@@ -276,6 +278,11 @@ size_t sreadl(int sockfd, void* buf) {
 	char c;
 	for (;;) {
 		size_t s = read(sockfd, &c, sizeof(c));
+		if (s == -1)
+			if(errno == EINTR)
+				continue;
+			else
+				return -1;
 		if (s == EOF)
 			break;
 		if (c == '\r') {
